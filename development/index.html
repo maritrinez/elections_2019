@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Map from styles</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+          margin: 0;
+          padding: 0;
+        }
+
+        /**
+        * Create a position for the map
+        * on the page */
+        #map {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 100%;
+        }
+
+        /**
+        * Set rules for how the map overlays
+        * (information box and legend) will be displayed
+        * on the page. */
+        .map-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          background: rgba(255, 255, 255, 0.8);
+          margin-right: 20px;
+          font-family: Arial, sans-serif;
+          overflow: auto;
+          border-radius: 3px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<div class='map-overlay' id='ttip'>
+    <h2>Concejales Elecciones municipales 2019</h2>
+    <div id='pd'>
+        <p>Hover over a state!</p>
+    </div>
+</div>
+
+
+<script>
+
+  // - - - REFERENCES:
+  // - Highlight related & add source & add layer
+  //   https://docs.mapbox.com/mapbox-gl-js/example/query-similar-features/
+  // - Highlight selected
+  //   https://docs.mapbox.com/mapbox-gl-js/example/hover-styles/
+  // https://gis.stackexchange.com/questions/322284/error-the-sourcelayer-parameter-must-be-provided-for-vector-source-types
+
+
+  // - - - INITIALIZE A MAP
+  mapboxgl.accessToken = 'pk.eyJ1IjoidmlzdWFsaXphZG9zIiwiYSI6ImNqd2kxN25ndTAzOTg0M3BoYjhjM29iMXAifQ.OnzqLMA0qPRZ6E_ybCbzlw';
+  
+  // // MURCIA
+  // var dots_u = 'mapbox://visualizados.372ji3v7',
+  //     dots_sl = 'dots_v3',
+  //     muni_u = 'mapbox://visualizados.000h5tgw',
+  //     muni_sl = 'murcia',
+  //     lonlat = [-1.162, 37.981];
+
+  // // MURCIA tiles ids
+  // var dots_u = 'mapbox://visualizados.372ji3v7',
+  //     dots_sl = 'dots_v3',
+  //     muni_u = 'mapbox://visualizados.0jeyy5u4',
+  //     muni_sl = 'murcia',
+  //     lonlat = [-1.162, 37.981];
+
+  // TODOS dosts, spain tiles
+  var dots_u = 'mapbox://visualizados.ckln4vzd',
+      dots_sl = 'seats',
+      muni_u = 'mapbox://visualizados.3egf3d1o',
+      muni_sl = 'spain',
+      lonlat = [-3.8196207, 40.4378698];
+
+  // // SS
+  // var dots_u = 'mapbox://visualizados.9ic7w5yv',
+  //     dots_sl = 'dots_v4',
+  //     muni_u = 'mapbox://visualizados.8s4e3gak',
+  //     muni_sl = 'ss',
+  //     lonlat = [-2.012288, 43.287135];
+
+  // // TERUEL 
+  //   var dots_u = 'mapbox://visualizados.2vx8mtcq',
+  //     dots_sl = 'dots_v5',
+  //     muni_u = 'mapbox://visualizados.7p2mwqiz',
+  //     muni_sl = 'teruel',
+  //     lonlat = [-0.8029863, 40.7029171];
+
+  // Create a map
+  var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/visualizados/cjxddrpkt00p51cogpkv53w7l',
+      zoom: 10,
+      center: lonlat
+  });
+
+  // Create a popup, but don't add it to the map yet.
+  var popup = new mapboxgl.Popup({
+    closeButton: false
+  });
+
+  // Create a var so store the hovered feature
+  var hoveredMuniId =  null,
+      hoveredSeatId = null;
+
+
+
+
+
+  map.on('load', function(m) {
+    // - - - ADD THE SOURCES
+    // https://docs.mapbox.com/mapbox-gl-js/example/query-similar-features/
+    // add layer directly spcifyng `source: {type: , url: }`
+    // In this case is better to add sources beforehand, 
+    // beacause they will be used more than once.
+    map.addSource("municipalities", {
+      type: 'vector',
+      url: muni_u
+    });
+
+    map.addSource("dots", {
+      type: 'vector',
+      url: dots_u
+    });
+
+
+    // - - - ADD THE LAYERS
+    map.addLayer({
+      "id": "municipalities-fills", // whatever
+      "type": "fill", // type of geometry
+      'source': 'municipalities', // added sorce or object `{type: , url: }`
+      "source-layer": muni_sl, 
+      "layout": {},
+      "paint": {
+        "fill-outline-color": "rgb(255,255,255)",
+        // "fill-outline-opacity": 0.2,
+        "fill-color": "rgb(220,220,220)",
+        // The feature-state dependent fill-opacity expression will render the hover effect
+        // when a feature's hover state is set to true.
+        "fill-opacity": ["case",
+          ["boolean", ["feature-state", "hover"], false],
+          0.1,
+          0.5
+        ]
+      }
+    }, 'settlement-label'); // Place polygon under these labels.
+
+    map.addLayer({
+      "id": "dots",
+      'type': 'circle',
+      'source': 'dots',
+      "source-layer": dots_sl, //https://docs.mapbox.com/help/glossary/source-layer/
+      'paint': {
+          'circle-radius': {
+            'base': 1,
+            'stops': [[6, 1.5], [8, 2.5], [12, 4], [16, 20]]
+          },
+          "circle-opacity": 1,
+          "circle-color": ["get", "COLOR_HEX"]
+      }
+    }, 'settlement-label'); 
+
+    map.addLayer({
+      "id": "dots-highlighted",
+      'type': 'circle',
+      'source': 'dots',
+      "source-layer": dots_sl,
+      'paint': {
+         'circle-radius': {
+            'base': 1,
+            'stops': [[6, 1.5], [8, 2.5], [12, 4], [16, 20]]
+          },
+          // "circle-opacity": 1,
+          "circle-opacity": ["case",
+            ["boolean", ["feature-state", "hover"], false],
+            1,
+            0
+          ],
+          "circle-color": ["get", "COLOR_HEX"]
+      }
+    }, 'settlement-label'); 
+
+    // - - - INTERACTION
+    map.on('mousemove', 'municipalities-fills', function(e) { // event, layer, callback
+
+      // - - - HIGHLIGHT RELATED - - - //
+      // Change the cursor style as a UI indicator.
+      map.getCanvas().style.cursor = 'pointer';
+
+      // Single out the first found feature.
+      var feature = e.features[0];
+      console.log(feature)
+      // console.log(eval(feature.properties.SEATS)[0])
+
+      // // Add features that share the same county name to the highlighted layer.
+      // //FIXTHIS::mantener el municode_INE en las municpalities, añadiendo en R una nueva columna de id
+      // map.setFilter(
+      //   'dots-highlighted', ['in', 'MUNICODE_INE', feature.properties.MUNICODE_INE]
+      // );
+
+      // Display a popup with the name of the county
+      popup.setLngLat(e.lngLat)
+          .setText(feature.properties.NAMEUNIT)
+          .addTo(map);
+
+      // TODO::Display a div con los datos del municipio
+      // concejales por partido
+      // rayita con la mayoría absoluta
+      // partido (nombre, pero poco importante) del alcalde
+      // le paso la feature ID a una clase que pintará el gráfico
+      // y actualizará los textos: 
+      // Nombre del municipio
+      // Número de concejales
+      // Gráfico
+      // Leyenda (colorscale común a todos, o hacer un subset de los colores o algo)
+      // Alcalde/alcaldesa partido
+
+
+      // - - - HIGHLIGHT SELECTED - - - //
+      if (feature !== undefined) {
+        // ussing tippecanoe for generating the vector tiles instead of uploading the geojson directly to mapbox
+        // so each municipality has its own and unique id, although is splitted into multiple tiles.
+        
+        // - - Remove last interaction
+        if (hoveredMuniId) {
+          map.setFeatureState({
+            source: 'municipalities',
+            sourceLayer: muni_sl,
+            id: hoveredMuniId},
+            {hover: false}
+          );
+        
+          map.setFeatureState({
+            source: 'dots',
+            sourceLayer: dots_sl,
+            id: hoveredMuniId},
+            {hover: false}
+          );
+        }
+
+
+        hoveredMuniId = feature.id;
+        map.setFeatureState({
+          source: 'municipalities',
+          sourceLayer: muni_sl,
+          id: hoveredMuniId},
+          {hover: true}
+        );
+        
+        // Cambiar todos a false
+        map.setPaintProperty('dots', 'circle-opacity', 0.3);
+
+        // menos el del id en cuestion
+        map.setFeatureState({
+          source: 'dots',
+          sourceLayer: dots_sl,
+          id: hoveredMuniId},
+          {hover: true}
+        );
+
+      }
+
+    }); // end mousemove
+
+    map.on("mouseleave", "municipalities-fills", function() {
+      
+      // - - - HIDE POPUP - - - //
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+      // map.setFilter(
+      //   'dots-highlighted', ['in', 'MUNICODE_INE', '']
+      // );
+
+      // - - - RESTORE SEATS - - - //
+      map.setPaintProperty('dots', 'circle-opacity', 1);
+
+      // - - - RESTORE SELECTED - - - //
+      if (hoveredMuniId) {
+        map.setFeatureState({
+          source: 'municipalities',
+          sourceLayer: muni_sl,
+          id: hoveredMuniId},
+          {hover: false}
+        );
+        map.setFeatureState({
+          source: 'dots',
+          sourceLayer: dots_sl,
+          id: hoveredMuniId},
+          {hover: false}
+        );
+      }
+      hoveredMuniId =  null;
+
+
+    
+    }); // end mouseleave
+    
+    map.on('mousemove', 'dots', function(e) {
+      // sacar un pop up con el nombre del partido
+      // o sacar la caja con todos los partidos (la misma que cuando se hace en un municipio) y el seleccionado destacado
+
+      // Destacar todos los círculos de ese partido y de ese municipio
+
+      if (e.features.length > 0) {
+        console.log(e.features[0].properties)
+      }
+    });
+  }); // end map on load
+
+    
+
+</script>
+
+</body>
+</html>

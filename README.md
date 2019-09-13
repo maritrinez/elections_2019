@@ -22,10 +22,17 @@
 
   The files inside `candidaturas` folder were used to fix some parties names. [Raw files found here](https://www.elconfidencial.com/elecciones-municipales-y-autonomicas/2019-05-26/candidaturas-listas-eleciones-municipales-2019_1991950/) 
 
+#### `generate_dots.R`
+  Generate coordinates for each party seat, inside the correspondent municipality geography. 
+  Assign each pair of coordinates o a party, according to the number of seats that each party got in the elections. 
+  As the dots generation takes a while (around one hour and a half), the resultant dataframe is saved as `muni_dots.csv`.
+  Add seats info to each municipality polygon. 
+  Save both objects, dots and polygons as geojson, so the files can be converted to mbtiles with [tippecanoe](https://docs.mapbox.com/help/troubleshooting/large-data-tippecanoe/#about-tippecanoe).
+  The files are `/development/data/municipalities.json` `/development/data/seats.json`
+
+#### Tippecanoe
+Convert the geojson to `vector mbtiles` and make the mapbox load faster.
 
 
-
-
-
-
+## Development
 
