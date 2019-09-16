@@ -13,22 +13,14 @@
 #------- LIBRARIES & WD ------
 library(tidyverse)
 library(sf)
-library(readxl)
-library(geojsonio)
-
-library(maptools) # automatic dot density
-
-library(rmapshaper)
-library(mapview)
-library(geojsonio)
-library(tmap)
-
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 #------- LOAD DATA ------
 # Elections data
-elections <- read_csv('data/muni2019_parties_colors.csv')
+elections <- read_csv('data/muni2019_parties_colors.csv') %>% 
+  filter(!is.na(party_acronym_original)) # NAs were generated to separate colors in the spreadsheet
+
 
 # Municipalities IGN 
 # http://centrodedescargas.cnig.es/CentroDescargas/catalogo.do?Serie=CAANE 
@@ -82,7 +74,7 @@ muni_sf <- muni_sf %>%
 
 #------- GENERATE RANDOM POINTS -----
 
-# Ddd a coordinates inside the muni polygon for every given seat
+# Add a coordinates inside the muni polygon for every given seat
 # (the seats_available variable )
 muni_sf_seats <- elections %>% 
   group_by(location_id) %>% 
@@ -208,13 +200,7 @@ Sys.time() - start
 # Write the dots.
 # Use write_sf as write_csv fails when reading the file;
 # because read_csv doesn't find a valid geometry column
-write_sf(muni_dots, 'data/muni_dots.csv', layer_options = "GEOMETRY=AS_WKT", delete_dsn=TRUE)
-
-# # If needed, read the muni_dots sf again
-# muni_dots <- read_sf('data/muni_dots.csv', geometry_column = 'geometry') %>% 
-#   select(-WKT) %>% 
-#   st_set_crs(4326)
-
+# write_sf(muni_dots, 'data/muni_dots.csv', layer_options = "GEOMETRY=AS_WKT", delete_dsn=TRUE)
 
 # Assign a party and therefore a color, to every point
 elections_long <- elections %>% 
@@ -237,6 +223,12 @@ muni_dots_colors <- muni_dots %>%
   select(-seats_available)
 
 write_sf(muni_dots_colors, 'data/muni_dots.csv', layer_options = "GEOMETRY=AS_WKT", delete_dsn=TRUE)
+
+# # If needed, read the muni_dots sf again
+# muni_dots_colors <- read_sf('data/muni_dots.csv', geometry_column = 'geometry') %>%
+#   select(-WKT) %>%
+#   st_set_crs(4326)
+
 
 # ------- MUNI POLYGONS WITH ADITIONAL INFO --------------
 
@@ -275,8 +267,7 @@ muni_sf_data <- muni_sf_seats %>%
   st_set_crs(4326)
 
 
-
-#------- TODO::SAVE POINTS & POLYGONS AS GEOJSON ------
+#------- SAVE POINTS & POLYGONS AS GEOJSON ------
 
 #  Polygons 
 geojson_write(muni_sf_data, file = '../development/data/municipalities.json')
@@ -294,7 +285,5 @@ muni_dots_colors %>%
   select(id, location_id, p_slug, p_name, seat_index, color, color_hex) %>% 
   geojson_write(file = '../development/data/seats.json')
 
-
-class(muni_dots_colors)
 
 
