@@ -53,53 +53,31 @@
 <script>
 
   // - - - REFERENCES:
-  // - Highlight related & add source & add layer
-  //   https://docs.mapbox.com/mapbox-gl-js/example/query-similar-features/
   // - Highlight selected
   //   https://docs.mapbox.com/mapbox-gl-js/example/hover-styles/
-  // https://gis.stackexchange.com/questions/322284/error-the-sourcelayer-parameter-must-be-provided-for-vector-source-types
+  // - Highlight related & add source & add layer
+  //   https://blog.mapbox.com/going-live-with-electoral-maps-a-guide-to-feature-state-b520e91a22d
 
 
   // - - - INITIALIZE A MAP
   mapboxgl.accessToken = 'pk.eyJ1IjoidmlzdWFsaXphZG9zIiwiYSI6ImNqd2kxN25ndTAzOTg0M3BoYjhjM29iMXAifQ.OnzqLMA0qPRZ6E_ybCbzlw';
-  
-  // // MURCIA
-  // var dots_u = 'mapbox://visualizados.372ji3v7',
-  //     dots_sl = 'dots_v3',
-  //     muni_u = 'mapbox://visualizados.000h5tgw',
-  //     muni_sl = 'murcia',
-  //     lonlat = [-1.162, 37.981];
 
-  // // MURCIA tiles ids
-  // var dots_u = 'mapbox://visualizados.372ji3v7',
-  //     dots_sl = 'dots_v3',
-  //     muni_u = 'mapbox://visualizados.0jeyy5u4',
-  //     muni_sl = 'murcia',
-  //     lonlat = [-1.162, 37.981];
-
-  // TODOS dosts, spain tiles
-  var dots_u = 'mapbox://visualizados.ckln4vzd',
+  // location_id as id
+  const dots_u = 'mapbox://visualizados.8fxl1q6e',
       dots_sl = 'seats',
-      muni_u = 'mapbox://visualizados.3egf3d1o',
-      muni_sl = 'spain',
+      muni_u = 'mapbox://visualizados.04y4fix9',
+      muni_sl = 'municipalities',
       lonlat = [-3.8196207, 40.4378698];
 
-  // // SS
-  // var dots_u = 'mapbox://visualizados.9ic7w5yv',
-  //     dots_sl = 'dots_v4',
-  //     muni_u = 'mapbox://visualizados.8s4e3gak',
-  //     muni_sl = 'ss',
-  //     lonlat = [-2.012288, 43.287135];
-
-  // // TERUEL 
-  //   var dots_u = 'mapbox://visualizados.2vx8mtcq',
-  //     dots_sl = 'dots_v5',
-  //     muni_u = 'mapbox://visualizados.7p2mwqiz',
-  //     muni_sl = 'teruel',
-  //     lonlat = [-0.8029863, 40.7029171];
+  // // standard
+  // var dots_u = 'mapbox://visualizados.ckln4vzd',
+  //     dots_sl = 'seats',
+  //     muni_u = 'mapbox://visualizados.3egf3d1o',
+  //     muni_sl = 'municipalities',
+  //     lonlat = [-3.8196207, 40.4378698];
 
   // Create a map
-  var map = new mapboxgl.Map({
+  const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/visualizados/cjxddrpkt00p51cogpkv53w7l',
       zoom: 10,
@@ -111,18 +89,12 @@
     closeButton: false
   });
 
-  // Create a var so store the hovered feature
-  var hoveredMuniId =  null,
-      hoveredSeatId = null;
-
-
-
+  // Create a var to store the hovered feature
+  let hoveredMuniId =  null;
 
 
   map.on('load', function(m) {
     // - - - ADD THE SOURCES
-    // https://docs.mapbox.com/mapbox-gl-js/example/query-similar-features/
-    // add layer directly spcifyng `source: {type: , url: }`
     // In this case is better to add sources beforehand, 
     // beacause they will be used more than once.
     map.addSource("municipalities", {
@@ -140,19 +112,16 @@
     map.addLayer({
       "id": "municipalities-fills", // whatever
       "type": "fill", // type of geometry
-      'source': 'municipalities', // added sorce or object `{type: , url: }`
+      'source': 'municipalities', // added source or object `{type: , url: }`
       "source-layer": muni_sl, 
       "layout": {},
       "paint": {
-        "fill-outline-color": "rgb(255,255,255)",
-        // "fill-outline-opacity": 0.2,
+        "fill-outline-color": "rgb(220,220,220)",
         "fill-color": "rgb(220,220,220)",
-        // The feature-state dependent fill-opacity expression will render the hover effect
-        // when a feature's hover state is set to true.
         "fill-opacity": ["case",
           ["boolean", ["feature-state", "hover"], false],
-          0.1,
-          0.5
+          0,
+          0.7 // hover false
         ]
       }
     }, 'settlement-label'); // Place polygon under these labels.
@@ -167,13 +136,17 @@
             'base': 1,
             'stops': [[6, 1.5], [8, 2.5], [12, 4], [16, 20]]
           },
-          "circle-opacity": 1,
-          "circle-color": ["get", "COLOR_HEX"]
+          "circle-opacity": ["case",
+            ["boolean", ["feature-state", "hover"], false],
+            1,
+            0.3 // hover false
+          ],
+          "circle-color": ["get", "color_hex"]
       }
     }, 'settlement-label'); 
 
     map.addLayer({
-      "id": "dots-highlighted",
+      "id": "dots-all-overlay",
       'type': 'circle',
       'source': 'dots',
       "source-layer": dots_sl,
@@ -182,56 +155,31 @@
             'base': 1,
             'stops': [[6, 1.5], [8, 2.5], [12, 4], [16, 20]]
           },
-          // "circle-opacity": 1,
-          "circle-opacity": ["case",
-            ["boolean", ["feature-state", "hover"], false],
-            1,
-            0
-          ],
-          "circle-color": ["get", "COLOR_HEX"]
+          "circle-opacity": 1,
+          "circle-color": ["get", "color_hex"]
       }
     }, 'settlement-label'); 
 
     // - - - INTERACTION
     map.on('mousemove', 'municipalities-fills', function(e) { // event, layer, callback
 
-      // - - - HIGHLIGHT RELATED - - - //
+      // - - - SHOW POPUP - - - //
+
       // Change the cursor style as a UI indicator.
       map.getCanvas().style.cursor = 'pointer';
 
       // Single out the first found feature.
       var feature = e.features[0];
-      console.log(feature)
-      // console.log(eval(feature.properties.SEATS)[0])
-
-      // // Add features that share the same county name to the highlighted layer.
-      // //FIXTHIS::mantener el municode_INE en las municpalities, añadiendo en R una nueva columna de id
-      // map.setFilter(
-      //   'dots-highlighted', ['in', 'MUNICODE_INE', feature.properties.MUNICODE_INE]
-      // );
 
       // Display a popup with the name of the county
       popup.setLngLat(e.lngLat)
-          .setText(feature.properties.NAMEUNIT)
+          .setText(feature.properties.muni_name)
           .addTo(map);
 
-      // TODO::Display a div con los datos del municipio
-      // concejales por partido
-      // rayita con la mayoría absoluta
-      // partido (nombre, pero poco importante) del alcalde
-      // le paso la feature ID a una clase que pintará el gráfico
-      // y actualizará los textos: 
-      // Nombre del municipio
-      // Número de concejales
-      // Gráfico
-      // Leyenda (colorscale común a todos, o hacer un subset de los colores o algo)
-      // Alcalde/alcaldesa partido
 
-
-      // - - - HIGHLIGHT SELECTED - - - //
+      // - - - HIGHLIGHT SELECTED & RELATED- - - //
       if (feature !== undefined) {
-        // ussing tippecanoe for generating the vector tiles instead of uploading the geojson directly to mapbox
-        // so each municipality has its own and unique id, although is splitted into multiple tiles.
+        // Each municipality should have its own and unique id, although is splitted into multiple tiles.
         
         // - - Remove last interaction
         if (hoveredMuniId) {
@@ -250,8 +198,9 @@
           );
         }
 
-
+        // - - Add new interaction
         hoveredMuniId = feature.id;
+        
         map.setFeatureState({
           source: 'municipalities',
           sourceLayer: muni_sl,
@@ -259,16 +208,25 @@
           {hover: true}
         );
         
-        // Cambiar todos a false
-        map.setPaintProperty('dots', 'circle-opacity', 0.3);
+        // Un-highlight overlay dots
+        map.setPaintProperty('dots-all-overlay', 'circle-opacity', 0);
 
-        // menos el del id en cuestion
         map.setFeatureState({
           source: 'dots',
           sourceLayer: dots_sl,
           id: hoveredMuniId},
           {hover: true}
         );
+
+        // TODO::Display a div con los datos del municipio
+        // concejales por partido
+        // rayita con la mayoría absoluta
+        // le paso la feature ID a una clase que pintará el gráfico
+        // y actualizará los textos: 
+        // Nombre del municipio
+        // Número de concejales
+        // Gráfico
+        // Leyenda (colorscale común a todos, o hacer un subset de los colores o algo)
 
       }
 
@@ -279,12 +237,9 @@
       // - - - HIDE POPUP - - - //
       map.getCanvas().style.cursor = '';
       popup.remove();
-      // map.setFilter(
-      //   'dots-highlighted', ['in', 'MUNICODE_INE', '']
-      // );
 
       // - - - RESTORE SEATS - - - //
-      map.setPaintProperty('dots', 'circle-opacity', 1);
+      map.setPaintProperty('dots-all-overlay', 'circle-opacity', 1);
 
       // - - - RESTORE SELECTED - - - //
       if (hoveredMuniId) {
@@ -302,21 +257,8 @@
         );
       }
       hoveredMuniId =  null;
-
-
     
     }); // end mouseleave
-    
-    map.on('mousemove', 'dots', function(e) {
-      // sacar un pop up con el nombre del partido
-      // o sacar la caja con todos los partidos (la misma que cuando se hace en un municipio) y el seleccionado destacado
-
-      // Destacar todos los círculos de ese partido y de ese municipio
-
-      if (e.features.length > 0) {
-        console.log(e.features[0].properties)
-      }
-    });
   }); // end map on load
 
     
