@@ -4,8 +4,15 @@
     <meta charset='utf-8' />
     <title>Map from styles</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.js'></script>
-    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.css' rel='stylesheet' />
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.css' rel='stylesheet'/>
+    
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.1/mapbox-gl-geocoder.min.js'></script>
+    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.1/mapbox-gl-geocoder.css' type='text/css'/>
+
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+
     <style>
         body {
           margin: 0;
@@ -30,6 +37,7 @@
           position: absolute;
           top: 0;
           left: 0;
+          bottom: 0;
           background: rgba(255, 255, 255, 0.8);
           margin-right: 20px;
           font-family: Arial, sans-serif;
@@ -37,15 +45,22 @@
           border-radius: 3px;
         }
 
+        path, line {
+          stroke: none;
+        }
+
     </style>
 </head>
 <body>
 
 <div id='map'></div>
-<div class='map-overlay' id='ttip'>
-    <h2>Concejales Elecciones municipales 2019</h2>
-    <div id='pd'>
-        <p>Hover over a state!</p>
+<div class='map-overlay'>
+    <h2>Elecciones municipales 2019</h2>
+    <h3>Mapa de concejales</h3>
+    <div id='ttip'>
+        <h3>España</h3>
+        <h4>66.418 concejales</h4>
+        <svg class='chart'></svg>
     </div>
 </div>
 
@@ -58,6 +73,9 @@
   // - Highlight related & add source & add layer
   //   https://blog.mapbox.com/going-live-with-electoral-maps-a-guide-to-feature-state-b520e91a22d
 
+
+  // - - - RENDER DEFAULT TOOLTIP
+  defaultTooltip();
 
   // - - - INITIALIZE A MAP
   mapboxgl.accessToken = 'pk.eyJ1IjoidmlzdWFsaXphZG9zIiwiYSI6ImNqd2kxN25ndTAzOTg0M3BoYjhjM29iMXAifQ.OnzqLMA0qPRZ6E_ybCbzlw';
@@ -80,14 +98,14 @@
   const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/visualizados/cjxddrpkt00p51cogpkv53w7l',
-      zoom: 10,
+      zoom: 5,
       center: lonlat
   });
 
-  // Create a popup, but don't add it to the map yet.
-  var popup = new mapboxgl.Popup({
-    closeButton: false
-  });
+  map.addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    mapboxgl: mapboxgl
+  }));
 
   // Create a var to store the hovered feature
   let hoveredMuniId =  null;
@@ -139,7 +157,7 @@
           "circle-opacity": ["case",
             ["boolean", ["feature-state", "hover"], false],
             1,
-            0.3 // hover false
+            0.1 // hover false
           ],
           "circle-color": ["get", "color_hex"]
       }
@@ -155,7 +173,7 @@
             'base': 1,
             'stops': [[6, 1.5], [8, 2.5], [12, 4], [16, 20]]
           },
-          "circle-opacity": 1,
+          "circle-opacity": 0.5,
           "circle-color": ["get", "color_hex"]
       }
     }, 'settlement-label'); 
@@ -163,19 +181,13 @@
     // - - - INTERACTION
     map.on('mousemove', 'municipalities-fills', function(e) { // event, layer, callback
 
-      // - - - SHOW POPUP - - - //
+      // - - - GET FEATURE - - - //
 
       // Change the cursor style as a UI indicator.
       map.getCanvas().style.cursor = 'pointer';
 
       // Single out the first found feature.
       var feature = e.features[0];
-
-      // Display a popup with the name of the county
-      popup.setLngLat(e.lngLat)
-          .setText(feature.properties.muni_name)
-          .addTo(map);
-
 
       // - - - HIGHLIGHT SELECTED & RELATED- - - //
       if (feature !== undefined) {
@@ -227,16 +239,13 @@
         // Número de concejales
         // Gráfico
         // Leyenda (colorscale común a todos, o hacer un subset de los colores o algo)
-
+        updateTooltip(feature.properties)
       }
 
     }); // end mousemove
 
     map.on("mouseleave", "municipalities-fills", function() {
-      
-      // - - - HIDE POPUP - - - //
       map.getCanvas().style.cursor = '';
-      popup.remove();
 
       // - - - RESTORE SEATS - - - //
       map.setPaintProperty('dots-all-overlay', 'circle-opacity', 1);
@@ -257,10 +266,72 @@
         );
       }
       hoveredMuniId =  null;
+      defaultTooltip();
     
     }); // end mouseleave
   }); // end map on load
+  
+  function updateTooltip (d) {
+    console.log(d);
 
+    d3.select('#ttip')
+      .html(`<h2>${d.muni_name} (provincia)</h2><p>${d.seats_given} concejales</p>`)
+  }
+
+  function defaultTooltip () {
+    
+    d3.select('#ttip')
+      .html(
+        `<h3>España</h3>
+        <h4>66.418 concejales</h4>
+        <svg class='chart'></svg>`
+      );
+
+    d3.csv("data/top10parties.csv", d => {
+      d.seats = +d.seats
+      return d
+    }).then(barchart); 
+
+
+    function barchart(data) {
+      console.log(data)
+      const w = 300,
+            h = 500,
+            p = 30;
+
+      const yScl = d3.scaleBand()
+        .domain(data.map(d => d.p_acronym))
+        .range([0, h - p * 2])
+        .padding(0.5);
+
+      const xScl = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.seats)])
+        .range([0, w - p * 2]);
+
+      const svg = d3.select('#ttip').select('svg.chart')
+        .attr('width', w)
+        .attr('height', h)
+        .append('g')
+        .attr('transform', `translate(${p}, ${p})`);
+      
+      svg.selectAll('rect')
+        .data(data)
+        .enter()
+        .append('rect')
+          .attr('x', 0)
+          .attr('y', d => yScl(d.p_acronym))
+          .attr('width', d => xScl(d.seats))
+          .attr('height', yScl.bandwidth())
+          .style('fill', d => d.color_hex);
+
+      svg.append('g')
+        .attr('transform', `translate(${9}, ${-yScl.bandwidth()/2 - 5})`)
+        .call(d3.axisLeft(yScl))
+        .selectAll('text')
+        .attr('text-anchor', 'start')
+
+    }
+  }
     
 
 </script>

@@ -97,11 +97,11 @@ sample_uniform_points <- function (geometry, seats, municode) {
   
   # - - Raw points
   pts <- st_sample(geometry, ss) %>% # (funciona en cáceres, que es la mayor de todas y en emperador que es la más pequeña)
-    st_cast("POINT") %>%
+    st_cast('POINT') %>%
     st_coordinates() %>%
     as_tibble() %>%
-    setNames(c("lon","lat")) %>% 
-    st_as_sf(coords = c("lon","lat")) %>% 
+    setNames(c('lon','lat')) %>% 
+    st_as_sf(coords = c('lon','lat')) %>% 
     st_set_crs(4326)
   
   # - - Remove the points that are closest to the boundary (un porcentaje en función del espacio disponible para cada punto?)
@@ -200,7 +200,7 @@ Sys.time() - start
 # Write the dots.
 # Use write_sf as write_csv fails when reading the file;
 # because read_csv doesn't find a valid geometry column
-# write_sf(muni_dots, 'data/muni_dots.csv', layer_options = "GEOMETRY=AS_WKT", delete_dsn=TRUE)
+# write_sf(muni_dots, 'data/muni_dots.csv', layer_options = 'GEOMETRY=AS_WKT', delete_dsn=TRUE)
 
 # Assign a party and therefore a color, to every point
 elections_long <- elections %>% 
@@ -222,7 +222,7 @@ muni_dots_colors <- muni_dots %>%
   st_set_crs(4326) %>% 
   select(-seats_available)
 
-write_sf(muni_dots_colors, 'data/muni_dots.csv', layer_options = "GEOMETRY=AS_WKT", delete_dsn=TRUE)
+write_sf(muni_dots_colors, 'data/muni_dots.csv', layer_options = 'GEOMETRY=AS_WKT', delete_dsn=TRUE)
 
 # # If needed, read the muni_dots sf again
 # muni_dots_colors <- read_sf('data/muni_dots.csv', geometry_column = 'geometry') %>%
@@ -276,7 +276,7 @@ geojson_write(muni_sf_data, file = '../development/data/municipalities.json')
 muni_dots_colors %>% 
   rename(p_slug = political_party_slug, p_name = political_party_long_name) %>% 
   mutate(
-    p_slug = if_else(!is.na(p_slug), p_slug, str_replace_all(tolower(party_acronym_original), "[[:space:]]", "")),
+    p_slug = if_else(!is.na(p_slug), p_slug, str_replace_all(tolower(party_acronym_original), '[[:space:]]', '')),
     p_name = if_else(!is.na(p_name), p_name, toupper(party_acronym_original)),
     id = row_number(),
     valid = st_dimension(st_sfc(geometry)) # Removes empty geometries
@@ -284,6 +284,50 @@ muni_dots_colors %>%
   filter(!is.na(valid)) %>% 
   select(id, location_id, p_slug, p_name, seat_index, color, color_hex) %>% 
   geojson_write(file = '../development/data/seats.json')
+
+
+#------- SAVE SEATS GROUPED NATIONALLY ------
+
+# total_seats
+sum(elections$party_seats)
+
+# Top 10 parties
+elections %>% 
+  group_by(color) %>% 
+  summarise(
+    seats = sum(party_seats),
+    p_name = first(political_party_long_name),
+    p_acronym = first(party_acronym),
+    color_hex = first(color_hex)
+  ) %>% 
+  ungroup() %>% 
+  filter(!grepl('^otro|^ag-|^ind-', color)) %>% 
+  arrange(-seats) %>% 
+  top_n(10, seats) %>% 
+  mutate(
+    p_name = case_when(
+      color == 'junts' ~ 'JUNTS PER CATALUNYA',
+      color == 'cs' ~ 'CIUDADANOS',
+      color == 'am' ~ 'ACORD MUNICIPAL',
+      color == 'iu' ~ 'IZQUIERDA UNIDA',
+      color == 'podemos' ~ 'UNIDAS PODEMOS',
+      color == 'ecp-ecg' ~ 'EN COMÚ PODEM - EN COMÚ GUANYEM',
+      color == 'CUP' ~ "CANDIDATURA D'UNITAT POPULAR",
+      TRUE ~ p_name
+    ),
+    p_acronym = case_when(
+      color == 'cs' ~ 'CIUDADANOS',
+      color == 'am' ~ 'ACORD MUNICIPAL',
+      color == 'iu' ~ 'IU',
+      TRUE ~ p_acronym
+    )
+  ) %>% 
+  write_csv('../development/data/top10parties.csv')
+
+
+
+
+
 
 
 
